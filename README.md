@@ -1,8 +1,8 @@
 # swift-ruid
 
-### A Snowflake ID Generator.
+## A Snowflake ID Generator in Swift.
 
-- usage
+### usage
 ``` swift
 import RUID
 

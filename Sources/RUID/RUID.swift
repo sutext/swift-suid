@@ -73,7 +73,8 @@ public struct RUID : Codable,Hashable,Equatable,RawRepresentable{
     ///
     /// Create an RUID instance
     ///
-    /// - Parameter
+    /// - Parameter group: RUID Generator group. RUID will keep monotone increasing and unique in same group. It maybe a database table name mostly!
+    /// - Parameter plane: RUID Logic plane.
     ///
     public static func create(_ group:String = "default",plane:Plane = .default)->RUID{
         mutex.lock()
