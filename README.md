@@ -1,12 +1,12 @@
 # swift-ruid
 
-## A Snowflake ID Generator in Swift.
+## Snowflake Unique Identifier Generator in Swift.
 
 ### usage
 ``` swift
-import RUID
+import SUID
 
-let id = RUID.create(.A)
+let id = SUID()
 
 print(id)
     
