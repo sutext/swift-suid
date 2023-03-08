@@ -60,7 +60,4 @@ final class SUIDTests: XCTestCase {
             }
         }
     }
-    static var allTests = [
-        ("testMultiThread", testMultiThread),
-    ]
 }
