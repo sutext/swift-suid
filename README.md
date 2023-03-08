@@ -6,8 +6,9 @@
 ``` swift
 import SUID
 
-let id = SUID()
+let aid = SUID()
+let bid = SUID(.B)
+print(aid)
+print(bid)  
 
-print(id)
-    
 ```

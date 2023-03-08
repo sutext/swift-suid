@@ -4,10 +4,7 @@ import XCTest
 final class SUIDTests: XCTestCase {
     var uuids:[String:String] = [:]
     var suids:[Int64:String] = [:]
-    let mutex = SUID.Mutex()
-    func testMultiThread() {
-
-    }
+    let mutex = NSLock()
     func testPrintUUID(){
         let time = Date().timeIntervalSince1970
         let group = DispatchGroup()
@@ -59,7 +56,7 @@ final class SUIDTests: XCTestCase {
         let qu = DispatchQueue(label: "11")
         for _ in 0..<1000{
             qu.async {
-                debugPrint(SUID())
+                debugPrint(SUID(.B))
             }
         }
     }
