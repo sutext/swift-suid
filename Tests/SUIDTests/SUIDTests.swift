@@ -2,64 +2,64 @@ import XCTest
 @testable import SUID
 
 final class SUIDTests: XCTestCase {
-    let uuids = NSMutableDictionary(capacity: 500000)
-    let suids = NSMutableDictionary(capacity: 500000)
-    let lock = NSLock()
+    var uuids:[String:String] = [:]
+    var suids:[Int64:String] = [:]
+    let mutex = SUID.Mutex()
     func testMultiThread() {
-        printUUID()
-        printSUID()
+
     }
-    func printUUID(){
+    func testPrintUUID(){
         let time = Date().timeIntervalSince1970
         let group = DispatchGroup()
-        for i in 0..<500 {
+        for i in 0..<10 {
             let queue = DispatchQueue.init(label: "\(i)")
             group.enter()
             queue.async {
-                for _ in 0..<900 {
+                for _ in 0..<26000 {
                     self.addUUID()
                 }
                 group.leave()
             }
         }
         group.wait()
-        print("UUID Time(ms):",(Date().timeIntervalSince1970 - time)*1000)
-//        XCTAssertEqual(uuids.count, 450000)
+        print("[UUID] Time(ms):",(Date().timeIntervalSince1970 - time)*1000)
+        XCTAssertEqual(uuids.count, 260000)
     }
-    func printSUID(){
+    func addUUID() {
+        let id = UUID()
+        self.mutex.lock()
+        self.uuids[id.uuidString] = id.uuidString
+        self.mutex.unlock()
+    }
+    func testPrintSUID(){
         let time = Date().timeIntervalSince1970
         let group = DispatchGroup()
-        for i in 0..<500 {
+        for i in 0..<10 {
             let queue = DispatchQueue.init(label: "\(i)")
             group.enter()
             queue.async {
-                for _ in 0..<900 {
+                for _ in 0..<26000 {
                     self.addSUID()
                 }
                 group.leave()
             }
         }
         group.wait()
-        print("SUID Time(ms):",(Date().timeIntervalSince1970 - time)*1000)
-        XCTAssertEqual(suids.count, 450000)
-    }
-    func addUUID() {
-        let id = UUID()
-        self.lock.lock()
-        self.uuids.setObject("" as NSString, forKey: id.uuidString as NSString)
-        self.lock.unlock()
+        print("[SUID] Time(ms):",(Date().timeIntervalSince1970 - time)*1000)
+        XCTAssertEqual(suids.count, 260000)
     }
     func addSUID() {
+        
+        self.mutex.lock()
         let id = SUID()
-        self.lock.lock()
-        self.suids.setObject("" as NSString, forKey: id.string as NSString)
-        self.lock.unlock()
+        self.suids[id.rawValue] = id.string
+        self.mutex.unlock()
     }
     func testParams(){
         let qu = DispatchQueue(label: "11")
         for _ in 0..<1000{
             qu.async {
-                print(SUID())
+                debugPrint(SUID())
             }
         }
     }

@@ -5,7 +5,7 @@
 //  Created by supertext on 3/29/21.
 //
 
-import Foundation.NSLock
+import Foundation
 
 /// Snowflake Unique Identifier
 ///
@@ -82,6 +82,24 @@ extension SUID:CustomStringConvertible,CustomDebugStringConvertible{
     }
 }
 extension SUID{
+    class Mutex{
+        private var os_lock:os_unfair_lock_t
+        deinit{
+            os_lock.deinitialize(count: 1)
+            os_lock.deallocate()
+        }
+        init(){
+            os_lock = .allocate(capacity: 1)
+            os_lock.initialize(to: os_unfair_lock())
+        }
+        func lock() {
+            os_unfair_lock_lock(os_lock)
+        }
+        func unlock() {
+            os_unfair_lock_unlock(os_lock)
+        }
+    }
+    
     struct Builder {
         static let LEN_SEQ  :Int64 = { Int64(String(MASK_SEQ ,radix: 2).count) }()
         static let LEN_HOST :Int64 = { Int64(String(MASK_HOST,radix: 2).count) }()
@@ -92,23 +110,27 @@ extension SUID{
         
         private static var seq:Int64        = 0
         private static var thisTime:Int64   = 0
-        private static var zeroTime:Int64   = Int64(Date().timeIntervalSince1970-1)
-        private static let mutex:NSLock     = NSLock()
+        private static var zeroTime:Int64   = Int64(Date().timeIntervalSince1970)
+        private static let mutex = Mutex()
         static func build(_ plane:Plane) -> Int64{
             mutex.lock()
             defer {
                 mutex.unlock()
             }
+        
             thisTime = Int64(Date().timeIntervalSince1970)
             if thisTime<zeroTime {
-                fatalError("Fatal Error!!! Host Clock moved backwards!")
+                fatalError("[SUID] Fatal Error!!! Host Clock moved backwards!")
             }
             if thisTime == zeroTime{
                 seq = seq + 1
                 if seq > MASK_SEQ{
-                    thisTime = nextTime()
+                    thisTime = zeroTime+1
                     seq = 0
                     zeroTime = thisTime
+                    // Wait for next seconds
+                    Thread.sleep(until: Date(timeIntervalSince1970:Double(thisTime)))
+                    print("[SUID] Force wait(ms):",(Double(thisTime) - Date().timeIntervalSince1970) * 1000)
                 }
             }else{
                 seq = 0
@@ -116,16 +138,9 @@ extension SUID{
             }
             return plane.rawValue | (thisTime << (LEN_HOST + LEN_SEQ)) | (seq << LEN_HOST) | HOST_ID
         }
-        private static func nextTime()->Int64{
-            var now = Int64(Date().timeIntervalSince1970)
-            while now <= zeroTime {
-                now = Int64(Date().timeIntervalSince1970)
-            }
-            return now
-        }
         private static let HOST_ID: Int64 = {
             let env = ProcessInfo.processInfo.environment
-            if let str = env["SUID_HOST_ID"]?.split(separator: "-").last,
+            if let str = (env["SUID_HOST_ID"] ?? ProcessInfo.processInfo.hostName)?.split(separator: "-").last,
                let num = Int64(str) {
                 return num & MASK_HOST;
             }
@@ -133,9 +148,6 @@ extension SUID{
             if let ary = ip?.split(separator: "."),ary.count == 4,
                let num = Int64(ary[3]){
                 return num & MASK_HOST
-            }
-            if let host = ProcessInfo.processInfo.hostName.split(separator: "-").last{
-                return (Int64(host) ?? Int64(host.hash)) & MASK_HOST
             }
             return Int64(arc4random()) & MASK_HOST
         }()
