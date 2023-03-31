@@ -11,14 +11,14 @@ import Foundation
 ///
 /// - See snowflake for more information
 /// - The data structure: symbol(1)-plane(3)-time(34)-seq(18)-host(8)
-/// - The machine code will read `SUID_HOST_ID` from environment firstly
-/// - The machine code will read `SUID_HOST_IP` or ipaddr secondly and pick last part of ip
-/// - The machine code will generate a random value of 10 bit at last
+/// - The machine code will read `SUID_HOST_ID` or `hostname` from environment firstly, and pick last part ( separator "-" )
+/// - The machine code will read  `hostname.hash`secondly
+///
 /// - Important The machine code algorithm  is not globally unique.
 /// - Important The max date for SUID will be `2514-05-30 01:53:03 +0000`
 /// - Important The maximum number of concurrent transactions is `262,143` per second. It will wait for next second automatically
 ///
-public struct SUID : Codable,Hashable,Equatable,RawRepresentable{
+public struct SUID : RawRepresentable,Codable,Hashable,Equatable{
     public let rawValue: Int64
     ///Init with Int64 value
     ///
@@ -96,7 +96,7 @@ extension SUID:CustomStringConvertible,CustomDebugStringConvertible{
     }
 }
 extension SUID{
-    struct Builder {
+    enum Builder {
         static let LEN_SEQ  :Int64 = { Int64(String(MASK_SEQ ,radix: 2).count) }()
         static let LEN_HOST :Int64 = { Int64(String(MASK_HOST,radix: 2).count) }()
         static let LEN_TIME :Int64 = { Int64(String(MASK_TIME,radix: 2).count) }()
@@ -106,16 +106,9 @@ extension SUID{
         private static var seq:Int64        = 0
         private static var thisTime:Int64   = 0
         private static var zeroTime:Int64   = Int64(Date().timeIntervalSince1970)
-        private static var mutex:os_unfair_lock_t = {
-            var lock = os_unfair_lock_t.allocate(capacity: 1)
-            lock.initialize(to: os_unfair_lock())
-            return lock
-        }()
+        private static let lock:Lock = Lock()
         static func build(_ plane:Plane) -> Int64{
-            os_unfair_lock_lock(mutex)
-            defer {
-                os_unfair_lock_unlock(mutex)
-            }
+            lock.lock(); defer { lock.unlock() }
             thisTime = Int64(Date().timeIntervalSince1970)
             if thisTime<zeroTime {
                 fatalError("[SUID] Fatal Error!!! Host Clock moved backwards!")
@@ -138,42 +131,41 @@ extension SUID{
         }
         private static let HOST_ID: Int64 = {
             let env = ProcessInfo.processInfo.environment
-            if let str = (env["SUID_HOST_ID"] ?? ProcessInfo.processInfo.hostName)?.split(separator: "-").last,
+            if let str = (env["SUID_HOST_ID"] ?? ProcessInfo.processInfo.hostName).split(separator: "-").last,
                let num = Int64(str) {
                 return num & MASK_HOST;
             }
-            let ip = env["SUID_HOST_IP"] ?? iplist().first
-            if let ary = ip?.split(separator: "."),ary.count == 4,
-               let num = Int64(ary[3]){
-                return num & MASK_HOST
-            }
-            return Int64(arc4random()) & MASK_HOST
+            return Int64(ProcessInfo.processInfo.hostName.hash) & MASK_HOST
         }()
-        private static func iplist() -> [String] {
-            var addresses = [String]()
-            var ifaddr : UnsafeMutablePointer<ifaddrs>? = nil
-            if getifaddrs(&ifaddr) == 0 {
-                var ptr = ifaddr
-                while ptr != nil {
-                    let flags = Int32((ptr?.pointee.ifa_flags)!)
-                    var addr = ptr?.pointee.ifa_addr.pointee
-                    if (flags & (IFF_UP|IFF_RUNNING|IFF_LOOPBACK)) == (IFF_UP|IFF_RUNNING),
-                       addr?.sa_family == UInt8(AF_INET){
-                        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                        if getnameinfo(&addr!,socklen_t((addr?.sa_len)!),
-                                       &hostname,socklen_t(hostname.count),
-                                       nil,socklen_t(0),NI_NUMERICHOST) == 0{
-                            if let address = String(validatingUTF8: hostname) {
-                                addresses.append(address)
-                            }
-                        }
-                    }
-                    ptr = ptr?.pointee.ifa_next
-                }
-                freeifaddrs(ifaddr)
-            }
-            return addresses
-        }
     }
 }
 
+
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+extension SUID{
+    /// faster than NSLock
+    fileprivate class Lock{
+        private let unfair: os_unfair_lock_t
+        deinit {
+            unfair.deinitialize(count: 1)
+            unfair.deallocate()
+        }
+        init() {
+            unfair = .allocate(capacity: 1)
+            unfair.initialize(to: os_unfair_lock())
+        }
+        func lock(){
+            os_unfair_lock_lock(unfair)
+        }
+        func unlock(){
+            os_unfair_lock_unlock(unfair)
+        }
+    }
+}
+#endif
+    
+#if os(Linux) || os(Windows)
+extension SUID{
+    fileprivate typealias Lock = NSLock
+}
+#endif

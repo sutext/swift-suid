@@ -3,7 +3,7 @@ import XCTest
 
 final class SUIDTests: XCTestCase {
     var uuids:[String:String] = [:]
-    var suids:[Int64:String] = [:]
+    var suids:[SUID:String] = [:]
     let mutex = NSLock()
     func testPrintUUID(){
         let time = Date().timeIntervalSince1970
@@ -46,10 +46,9 @@ final class SUIDTests: XCTestCase {
         XCTAssertEqual(suids.count, 260000)
     }
     func addSUID() {
-        
-        self.mutex.lock()
         let id = SUID()
-        self.suids[id.rawValue] = id.string
+        self.mutex.lock()
+        self.suids[id] = id.string
         self.mutex.unlock()
     }
     func testParams(){
