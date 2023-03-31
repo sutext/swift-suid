@@ -6,7 +6,7 @@
 
 #### Swift Package Manager
 
-You can use [The Swift Package Manager](https://swift.org/package-manager) to install `swift-websocket` by adding the proper description to your `Package.swift` file:
+You can use [The Swift Package Manager](https://swift.org/package-manager) to install `swift-suid` by adding the proper description to your `Package.swift` file:
 
 ```swift
 // swift-tools-version:5.7
