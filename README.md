@@ -15,7 +15,7 @@ import PackageDescription
 let package = Package(
     name: "YOUR_PROJECT_NAME",
     dependencies: [
-        .package(url: "https://github.com/sutext/swift-suid.git", from: "1.1.0"),
+        .package(url: "https://github.com/sutext/swift-suid.git", from: "2.2.0"),
     ],
     targets: [
         .target(
